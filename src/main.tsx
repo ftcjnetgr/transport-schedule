@@ -1,4 +1,5 @@
-import { FormEvent, StrictMode, useEffect, useMemo, useState } from 'react'
+import { StrictMode, useEffect, useMemo, useState } from 'react'
+import type { FormEvent } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ArrowLeft, CheckCircle2, LogOut, MapPin, Plus, RefreshCw, Truck, X, Database } from 'lucide-react'
 import { supabase, usernameToEmail } from './lib/supabase'
