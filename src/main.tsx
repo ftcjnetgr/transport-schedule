@@ -1,192 +1,58 @@
 import { FormEvent, StrictMode, useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { LogOut, MapPin, RefreshCw, Truck } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, LogOut, MapPin, Plus, RefreshCw, Truck, X } from 'lucide-react'
 import { supabase, usernameToEmail } from './lib/supabase'
 import './styles.css'
 
-type Profile = {
-  id: string
-  username: string
-  hub_id: number | null
-  role: 'User' | 'Controller' | 'Super User'
-  active: boolean
-}
+type Profile = { id: string; username: string; hub_id: number | null; role: 'User' | 'Controller' | 'Super User'; active: boolean }
+type Schedule = { id: number; schedule_id: string; start_point_3lc: string; destination_3lc: string; start_point: string; destination: string; std: string; sta: string; route: string | null; category: string | null }
+type SJ = { surat_jalan_number: string; qty: string; weight: string; product: string; notes: string }
+type Order = { id: string; order_number: string; schedule_id: number; ordered_by: string; status: 'ordered' | 'departed' | 'arrived' | 'cancelled'; plate_number: string; notes: string | null; ordered_at: string; departure_confirmed_at: string | null; arrival_confirmed_at: string | null; ata: string | null; schedules?: Schedule }
 
-type Schedule = {
-  id: number
-  schedule_id: string
-  start_point_3lc: string
-  destination_3lc: string
-  start_point: string
-  destination: string
-  std: string
-  sta: string
-  route: string | null
-  category: string | null
-}
+const emptySJ = (): SJ => ({ surat_jalan_number: '', qty: '', weight: '', product: '', notes: '' })
 
 function Login({ onLoggedIn }: { onLoggedIn: (profile: Profile) => void }) {
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-
+  const [username, setUsername] = useState(''); const [password, setPassword] = useState(''); const [busy, setBusy] = useState(false); const [error, setError] = useState('')
   async function submit(event: FormEvent) {
-    event.preventDefault()
-    setBusy(true)
-    setError('')
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: usernameToEmail(username),
-      password,
-    })
-
-    if (signInError) {
-      setError('ID atau password belum cocok. Coba lagi.')
-      setBusy(false)
-      return
-    }
-
-    const { data, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, username, hub_id, role, active')
-      .single()
-
-    if (profileError || !data?.active) {
-      await supabase.auth.signOut()
-      setError('Akun belum aktif atau profil belum terdaftar.')
-      setBusy(false)
-      return
-    }
-
-    onLoggedIn(data as Profile)
-    setBusy(false)
+    event.preventDefault(); setBusy(true); setError('')
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: usernameToEmail(username), password })
+    if (signInError) { setError('ID atau password belum cocok. Coba lagi.'); setBusy(false); return }
+    const { data, error: profileError } = await supabase.from('profiles').select('id, username, hub_id, role, active').single()
+    if (profileError || !data?.active) { await supabase.auth.signOut(); setError('Akun belum aktif atau profil belum terdaftar.'); setBusy(false); return }
+    onLoggedIn(data as Profile); setBusy(false)
   }
-
-  return (
-    <main className="shell">
-      <section className="auth-card">
-        <div className="brand-mark"><Truck size={22} /></div>
-        <span className="eyebrow">TRANSPORT SCHEDULE</span>
-        <h1>Siap berangkat?</h1>
-        <p className="muted">Masuk untuk lihat schedule dan buat order perjalanan.</p>
-        <form onSubmit={submit} className="form-stack">
-          <label>
-            ID
-            <input value={username} onChange={(e) => setUsername(e.target.value.toUpperCase())} placeholder="Contoh: GPX" autoComplete="username" required />
-          </label>
-          <label>
-            Password
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Masukkan password" autoComplete="current-password" required />
-          </label>
-          {error && <div className="error">{error}</div>}
-          <button className="primary" disabled={busy}>{busy ? 'Memeriksa…' : 'Masuk'}</button>
-        </form>
-        <div className="hint">Password pertama dibuat saat akun diaktifkan oleh Super User.</div>
-      </section>
-    </main>
-  )
+  return <main className="shell"><section className="auth-card"><div className="brand-mark"><Truck size={22} /></div><span className="eyebrow">TRANSPORT SCHEDULE</span><h1>Siap berangkat?</h1><p className="muted">Masuk untuk lihat schedule dan buat order perjalanan.</p><form onSubmit={submit} className="form-stack"><label>ID<input value={username} onChange={e => setUsername(e.target.value.toUpperCase())} placeholder="Contoh: GPX" autoComplete="username" required /></label><label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Masukkan password" autoComplete="current-password" required /></label>{error && <div className="error">{error}</div>}<button className="primary" disabled={busy}>{busy ? 'Memeriksa…' : 'Masuk'}</button></form><div className="hint">Password pertama dibuat saat akun diaktifkan oleh Super User.</div></section></main>
 }
+
+function OrderForm({ schedule, onBack, onSaved }: { schedule: Schedule; onBack: () => void; onSaved: (order: Order, sjs: SJ[]) => void }) {
+  const [plate, setPlate] = useState(''); const [notes, setNotes] = useState(''); const [items, setItems] = useState<SJ[]>([emptySJ()]); const [busy, setBusy] = useState(false); const [error, setError] = useState('')
+  function updateItem(index: number, key: keyof SJ, value: string) { setItems(current => current.map((item, i) => i === index ? { ...item, [key]: value } : item)) }
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setError('')
+    if (!plate.trim() || items.some(x => !x.surat_jalan_number.trim())) { setError('Lengkapi nomor plat dan semua nomor surat jalan.'); return }
+    setBusy(true)
+    const payload = items.map(x => ({ ...x, qty: x.qty || null, weight: x.weight || null }))
+    const { data: orderId, error: rpcError } = await supabase.rpc('create_order', { p_schedule_id: schedule.id, p_plate_number: plate.trim(), p_notes: notes.trim() || null, p_surat_jalan: payload })
+    if (rpcError) { setError(rpcError.message); setBusy(false); return }
+    const { data: order, error: orderError } = await supabase.from('orders').select('id, order_number, schedule_id, ordered_by, status, plate_number, notes, ordered_at, departure_confirmed_at, arrival_confirmed_at, ata').eq('id', orderId).single()
+    if (orderError || !order) { setError(orderError?.message ?? 'Order berhasil dibuat, tetapi detail belum bisa dimuat.'); setBusy(false); return }
+    onSaved({ ...(order as Order), schedules: schedule }, items); setBusy(false)
+  }
+  return <main className="app-shell"><header className="topbar"><button className="back-button" onClick={onBack}><ArrowLeft size={18}/> Kembali</button><span className="eyebrow">NEW ORDER</span></header><section className="order-layout"><div><div className="section-title"><div><span className="eyebrow">SCHEDULE</span><h1>{schedule.schedule_id}</h1></div><span className="category">{schedule.category ?? 'Regular'}</span></div><div className="readonly-grid"><div><small>START</small><strong>{schedule.start_point_3lc} · {schedule.start_point}</strong></div><div><small>DESTINATION</small><strong>{schedule.destination_3lc} · {schedule.destination}</strong></div><div><small>STD</small><strong>{schedule.std.slice(0,5)}</strong></div><div><small>STA</small><strong>{schedule.sta.slice(0,5)}</strong></div></div></div><form onSubmit={submit} className="order-form"><label>Nomor Plat<input value={plate} onChange={e => setPlate(e.target.value.toUpperCase())} placeholder="B 1234 XYZ" required /></label><label>Catatan Order<textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="Opsional" rows={2}/></label><div className="sj-header"><div><span className="eyebrow">MUATAN</span><h2>Surat jalan</h2></div><button type="button" className="secondary small" onClick={() => setItems(x => [...x, emptySJ()])}><Plus size={16}/> Add SJ</button></div>{items.map((item,index) => <div className="sj-card" key={index}><div className="sj-card-head"><strong>SJ #{index+1}</strong>{items.length > 1 && <button type="button" className="icon-button danger" onClick={() => setItems(x => x.filter((_,i) => i !== index))}><X size={17}/></button>}</div><div className="field-grid"><label>No. Surat Jalan<input value={item.surat_jalan_number} onChange={e => updateItem(index,'surat_jalan_number',e.target.value)} required /></label><label>Qty<input type="number" min="0" step="any" value={item.qty} onChange={e => updateItem(index,'qty',e.target.value)} /></label><label>Weight<input type="number" min="0" step="any" value={item.weight} onChange={e => updateItem(index,'weight',e.target.value)} /></label><label>Product<input value={item.product} onChange={e => updateItem(index,'product',e.target.value)} /></label><label className="full">Catatan SJ<textarea value={item.notes} onChange={e => updateItem(index,'notes',e.target.value)} rows={2}/></label></div></div>)}{error && <div className="error">{error}</div>}<button className="primary" disabled={busy}>{busy ? 'Menyimpan…' : 'Buat Order & Cetak PDF'}</button></form></section></main>
+}
+
+function PrintOrder({ order, sjs }: { order: Order; sjs: SJ[] }) { const schedule = order.schedules!; return <div className="print-sheet"><div className="print-head"><div><b>TRANSPORT SCHEDULE</b><h1>{order.order_number}</h1></div><b>{order.status.toUpperCase()}</b></div><div className="print-route"><div><small>ROUTE</small><strong>{schedule.start_point_3lc} → {schedule.destination_3lc}</strong><span>{schedule.start_point} → {schedule.destination}</span></div><div><small>STD / STA</small><strong>{schedule.std.slice(0,5)} / {schedule.sta.slice(0,5)}</strong></div><div><small>PLAT</small><strong>{order.plate_number}</strong></div></div><table><thead><tr><th>SJ</th><th>Qty</th><th>Weight</th><th>Product</th><th>Notes</th></tr></thead><tbody>{sjs.map((x,i)=><tr key={i}><td>{x.surat_jalan_number}</td><td>{x.qty || '-'}</td><td>{x.weight || '-'}</td><td>{x.product || '-'}</td><td>{x.notes || '-'}</td></tr>)}</tbody></table><div className="print-foot">Created {new Date(order.ordered_at).toLocaleString('id-ID')}</div></div> }
 
 function Dashboard({ profile, onLogout }: { profile: Profile; onLogout: () => void }) {
-  const [schedules, setSchedules] = useState<Schedule[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
-  const hubLabel = useMemo(() => {
-    if (profile.role !== 'User' || !profile.hub_id) return 'All Area'
-    return `Hub #${profile.hub_id}`
-  }, [profile])
-
-  async function loadSchedules() {
-    setLoading(true)
-    setError('')
-    const { data, error: queryError } = await supabase
-      .from('schedules')
-      .select('id, schedule_id, start_point_3lc, destination_3lc, start_point, destination, std, sta, route, category')
-      .eq('active', true)
-      .order('std')
-
-    if (queryError) setError(queryError.message)
-    setSchedules((data ?? []) as Schedule[])
-    setLoading(false)
-  }
-
-  useEffect(() => { void loadSchedules() }, [])
-
-  return (
-    <main className="app-shell">
-      <header className="topbar">
-        <div>
-          <span className="eyebrow">TRANSPORT SCHEDULE</span>
-          <div className="top-title">Halo, {profile.username} 👋</div>
-        </div>
-        <div className="top-actions">
-          <span className="role-pill">{profile.role} · {hubLabel}</span>
-          <button className="icon-button" onClick={() => void loadSchedules()} title="Refresh"><RefreshCw size={18} /></button>
-          <button className="icon-button" onClick={onLogout} title="Keluar"><LogOut size={18} /></button>
-        </div>
-      </header>
-
-      <section className="hero-row">
-        <div>
-          <div className="eyebrow">TODAY'S RUN</div>
-          <h1>Pilih schedule</h1>
-          <p className="muted">Schedule yang tampil sudah mengikuti akses hub akun lo.</p>
-        </div>
-        <div className="hero-chip"><MapPin size={17} /> Hub-scoped</div>
-      </section>
-
-      {error && <div className="error wide">Gagal memuat schedule: {error}</div>}
-      {loading ? <div className="empty">Memuat schedule…</div> : schedules.length === 0 ? <div className="empty">Belum ada schedule yang bisa di-order.</div> : (
-        <div className="schedule-grid">
-          {schedules.map((schedule) => (
-            <article className="schedule-card" key={schedule.id}>
-              <div className="schedule-head">
-                <div>
-                  <span className="schedule-id">{schedule.schedule_id}</span>
-                  <div className="route-code">{schedule.start_point_3lc} <span>→</span> {schedule.destination_3lc}</div>
-                </div>
-                <span className="category">{schedule.category ?? 'Regular'}</span>
-              </div>
-              <div className="location-row">
-                <div><small>START</small><strong>{schedule.start_point}</strong></div>
-                <div><small>DESTINATION</small><strong>{schedule.destination}</strong></div>
-              </div>
-              <div className="time-row">
-                <div><small>STD</small><b>{schedule.std?.slice(0, 5)}</b></div>
-                <div><small>STA</small><b>{schedule.sta?.slice(0, 5)}</b></div>
-                <button className="primary small" onClick={() => alert(`Order untuk ${schedule.schedule_id} akan dibangun berikutnya.`)}>Order</button>
-              </div>
-            </article>
-          ))}
-        </div>
-      )}
-    </main>
-  )
+  const [schedules,setSchedules]=useState<Schedule[]>([]); const [orders,setOrders]=useState<Order[]>([]); const [loading,setLoading]=useState(true); const [error,setError]=useState(''); const [selected,setSelected]=useState<Schedule|null>(null); const [printOrder,setPrintOrder]=useState<{order:Order;sjs:SJ[]}|null>(null); const [tab,setTab]=useState<'schedule'|'orders'|'confirm'>('schedule')
+  const hubLabel=useMemo(()=>profile.role==='User'&&profile.hub_id?`Hub #${profile.hub_id}`:'All Area',[profile])
+  async function load() { setLoading(true); setError(''); const [s,o]=await Promise.all([supabase.from('schedules').select('id, schedule_id, start_point_3lc, destination_3lc, start_point, destination, std, sta, route, category').eq('active',true).order('std'),supabase.from('orders').select('id, order_number, schedule_id, ordered_by, status, plate_number, notes, ordered_at, departure_confirmed_at, arrival_confirmed_at, ata, schedules(id, schedule_id, start_point_3lc, destination_3lc, start_point, destination, std, sta, route, category)').order('ordered_at',{ascending:false}).limit(50)]); if(s.error||o.error)setError(s.error?.message||o.error?.message||'Gagal memuat data'); setSchedules((s.data??[]) as Schedule[]); setOrders((o.data??[]) as unknown as Order[]); setLoading(false) }
+  useEffect(()=>{void load()},[])
+  async function confirm(kind:'departure'|'arrival',id:string){ const {error:e}=await supabase.rpc(kind==='departure'?'confirm_departure':'confirm_arrival',{p_order_id:id}); if(e){setError(e.message);return} await load() }
+  if(selected)return <OrderForm schedule={selected} onBack={()=>setSelected(null)} onSaved={(order,sjs)=>{setSelected(null);setPrintOrder({order,sjs});setTab('orders');setOrders(x=>[order,...x]);setTimeout(()=>window.print(),150)}}/>
+  return <main className="app-shell"><header className="topbar"><div><span className="eyebrow">TRANSPORT SCHEDULE</span><div className="top-title">Halo, {profile.username} 👋</div></div><div className="top-actions"><span className="role-pill">{profile.role} · {hubLabel}</span><button className="icon-button" onClick={()=>void load()} title="Refresh"><RefreshCw size={18}/></button><button className="icon-button" onClick={onLogout} title="Keluar"><LogOut size={18}/></button></div></header><div className="tabs"><button className={tab==='schedule'?'active':''} onClick={()=>setTab('schedule')}>Schedule</button><button className={tab==='orders'?'active':''} onClick={()=>setTab('orders')}>Order Saya</button><button className={tab==='confirm'?'active':''} onClick={()=>setTab('confirm')}>Konfirmasi</button></div>{error&&<div className="error wide">{error}</div>}{loading?<div className="empty">Memuat data…</div>:tab==='schedule'?<><section className="hero-row"><div><div className="eyebrow">TODAY'S RUN</div><h1>Pilih schedule</h1><p className="muted">Schedule yang tampil mengikuti akses hub akun lo.</p></div><div className="hero-chip"><MapPin size={17}/> Hub-scoped</div></section><div className="schedule-grid">{schedules.map(s=><article className="schedule-card" key={s.id}><div className="schedule-head"><div><span className="schedule-id">{s.schedule_id}</span><div className="route-code">{s.start_point_3lc} <span>→</span> {s.destination_3lc}</div></div><span className="category">{s.category??'Regular'}</span></div><div className="location-row"><div><small>START</small><strong>{s.start_point}</strong></div><div><small>DESTINATION</small><strong>{s.destination}</strong></div></div><div className="time-row"><div><small>STD</small><b>{s.std.slice(0,5)}</b></div><div><small>STA</small><b>{s.sta.slice(0,5)}</b></div><button className="primary small" onClick={()=>setSelected(s)}>Order</button></div></article>)}</div></>:tab==='orders'?<section className="panel"><div className="section-title"><div><span className="eyebrow">HISTORY</span><h1>Order saya</h1></div></div>{orders.length===0?<div className="empty">Belum ada order.</div>:<div className="order-list">{orders.map(o=><article className="order-row" key={o.id}><div><strong>{o.order_number}</strong><span>{o.schedules?.schedule_id} · {o.plate_number}</span></div><span className={`status ${o.status}`}>{o.status}</span>{printOrder?.order.id===o.id&&<button className="secondary small" onClick={()=>window.print()}>Cetak lagi</button>}</article>)}</div>}</section>:<section className="panel"><div className="section-title"><div><span className="eyebrow">HANDOVER</span><h1>Konfirmasi perjalanan</h1><p className="muted">Konfirmasi yang tersedia akan mengikuti akses origin/destination akun lo.</p></div></div><div className="order-list">{orders.map(o=><article className="order-row" key={o.id}><div><strong>{o.order_number}</strong><span>{o.schedules?.start_point_3lc} → {o.schedules?.destination_3lc} · {o.plate_number}</span></div><div className="confirm-actions">{!o.departure_confirmed_at&&<button className="secondary small" onClick={()=>void confirm('departure',o.id)}>Berangkat</button>}{!o.arrival_confirmed_at&&o.departure_confirmed_at&&<button className="primary small" onClick={()=>void confirm('arrival',o.id)}>Tiba</button>}{o.arrival_confirmed_at&&<span className="confirmed"><CheckCircle2 size={16}/> Selesai</span>}</div></article>)}</div></section>}{printOrder&&<PrintOrder order={printOrder.order} sjs={printOrder.sjs}/>}</main>
 }
 
-function App() {
-  const [profile, setProfile] = useState<Profile | null>(null)
-  const [checking, setChecking] = useState(true)
+function App(){const[profile,setProfile]=useState<Profile|null>(null);const[checking,setChecking]=useState(true);useEffect(()=>{void supabase.auth.getSession().then(async({data})=>{if(data.session){const{data:p}=await supabase.from('profiles').select('id, username, hub_id, role, active').single();if(p?.active)setProfile(p as Profile)}setChecking(false)})},[]);async function logout(){await supabase.auth.signOut();setProfile(null)}if(checking)return <main className="shell"><div className="loading-card">Menyiapkan aplikasi…</div></main>;return profile?<Dashboard profile={profile} onLogout={logout}/>:<Login onLoggedIn={setProfile}/>}
 
-  useEffect(() => {
-    void supabase.auth.getSession().then(async ({ data }) => {
-      if (data.session) {
-        const { data: currentProfile } = await supabase.from('profiles').select('id, username, hub_id, role, active').single()
-        if (currentProfile?.active) setProfile(currentProfile as Profile)
-      }
-      setChecking(false)
-    })
-  }, [])
-
-  async function logout() {
-    await supabase.auth.signOut()
-    setProfile(null)
-  }
-
-  if (checking) return <main className="shell"><div className="loading-card">Menyiapkan aplikasi…</div></main>
-  return profile ? <Dashboard profile={profile} onLogout={logout} /> : <Login onLoggedIn={setProfile} />
-}
-
-createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>)
+createRoot(document.getElementById('root')!).render(<StrictMode><App/></StrictMode>)
