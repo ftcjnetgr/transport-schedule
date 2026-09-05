@@ -16,4 +16,4 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
 })
 
 export const usernameToEmail = (username: string) =>
-  `${username.trim().toLowerCase()}@transport.local`
+  `${username.trim().toLowerCase()}@transport-schedule.local`
