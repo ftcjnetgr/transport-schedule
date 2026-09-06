@@ -1,0 +1,40 @@
+name: Fix password UI
+on:
+  push:
+    paths:
+      - 'UI_FIX_TRIGGER.txt'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch UI
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/main.tsx')
+          s = p.read_text()
+          s = s.replace("if(e2){setError(e2.message);setBusy(false);return}", "if(e2){setError('Password baru belum bisa disimpan. Coba lagi ya.');setBusy(false);return}")
+          s = s.replace("if(e3){setError(e3.message);setBusy(false);return}", "if(e3){setError('Password berhasil diperbarui, tapi status akun belum tersimpan. Coba lagi ya.');setBusy(false);return}")
+          p.write_text(s)
+
+          p = Path('src/styles.css')
+          s = p.read_text()
+          s = s.replace("@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');", "@import url('https://fonts.cdnfonts.com/css/gilroy-bold');")
+          s = s.replace(':root{font-family:Inter,system-ui,sans-serif;', ":root{font-family:'Gilroy-Regular',sans-serif;")
+          s += "\nbody,h1,h2,h3,h4,h5,h6,button,input,textarea,label{font-family:'Gilroy-Regular',sans-serif}h1,h2,h3,.top-title,.schedule-id,.route-code,.time-row b,.primary,.secondary,.back-button,.tabs button,.role-pill,.hero-chip,.category,.eyebrow,strong{font-family:'Gilroy-Bold',sans-serif}\n"
+          p.write_text(s)
+          PY
+      - name: Remove temporary workflow and trigger
+        run: |
+          rm -f .github/workflows/fix-ui-font.yml UI_FIX_TRIGGER.txt
+      - name: Commit changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/main.tsx src/styles.css .github/workflows/fix-ui-font.yml UI_FIX_TRIGGER.txt
+          git commit -m 'fix: localize password error and use Gilroy font' || exit 0
+          git push
