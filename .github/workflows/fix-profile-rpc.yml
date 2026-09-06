@@ -1,0 +1,40 @@
+name: Switch profile loading to secure RPC
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch profile loading
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('src/main.tsx')
+          s = p.read_text()
+          old_login = "const {data,error:profileError}=await supabase.from('profiles').select('id, username, hub_id, role, active, must_change_password').eq('id',userId).single();"
+          new_login = "const {data:profileRows,error:profileError}=await supabase.rpc('get_my_profile');const data=profileRows?.[0] ?? null;"
+          old_app = "const{data:p}=await supabase.from('profiles').select('id, username, hub_id, role, active, must_change_password').eq('id',data.session.user.id).single();"
+          new_app = "const{data:profileRows}=await supabase.rpc('get_my_profile');const p=profileRows?.[0] ?? null;"
+          changed = False
+          if old_login in s:
+              s = s.replace(old_login, new_login, 1)
+              changed = True
+          if old_app in s:
+              s = s.replace(old_app, new_app, 1)
+              changed = True
+          if not changed:
+              raise SystemExit('No matching profile query found')
+          p.write_text(s)
+          PY
+      - name: Commit patch
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/main.tsx
+          git commit -m "fix: load profile through secure RPC"
+          git push
