@@ -1,6 +1,6 @@
 import type { Plugin } from 'vite'
 
-const filterMarkup = `<section className="schedule-filters"><div className="category-filter"><span className="filter-label">Tipe perjalanan</span><div className="filter-chips">{(['Normal','Campaign'] as const).map(category=><button key={category} className={categoryFilter===category?'active':''} onClick={()=>setCategoryFilter(category)}>{category}</button>)}</div></div><div className="route-filter"><span className="filter-label">Rute</span><div className="route-tabs">{(['interhub','transit','direct'] as const).map(route=><button key={route} className={routeFilter===route?'active':''} onClick={()=>setRouteFilter(route)}>{route==='interhub'?'Interhub':route==='transit'?'Transit':'Direct'}</button>)}</div></div></section>`
+const filterMarkup = `<section className="schedule-filters"><div className="schedule-search"><span className="filter-label">Cari jadwal</span><input value={searchQuery} onChange={e=>setSearchQuery(e.target.value)} placeholder="Cari ID, start point, destination, STD, STA, rute, tipe…" aria-label="Cari jadwal"/></div><div className="schedule-filter-row"><div className="category-filter"><span className="filter-label">Tipe perjalanan</span><div className="filter-chips">{(['Normal','Campaign'] as const).map(category=><button key={category} className={categoryFilter===category?'active':''} onClick={()=>setCategoryFilter(category)}>{category}</button>)}</div></div><div className="route-filter"><span className="filter-label">Rute</span><div className="route-tabs">{(['interhub','transit','direct'] as const).map(route=><button key={route} className={routeFilter===route?'active':''} onClick={()=>setRouteFilter(route)}>{route==='interhub'?'Interhub':route==='transit'?'Transit':'Direct'}</button>)}</div></div></div></section>`
 
 export default function scheduleUiPatch(): Plugin {
   return {
@@ -12,7 +12,7 @@ export default function scheduleUiPatch(): Plugin {
       let out = code
 
       const oldState = "const[dateFilter,setDateFilter]=useState<DateFilter>('today');const[categoryFilter,setCategoryFilter]=useState<'all'|'Normal'|'Campaign'>('all')"
-      const newState = "const[routeFilter,setRouteFilter]=useState<'interhub'|'transit'|'direct'>('interhub');const[categoryFilter,setCategoryFilter]=useState<'Normal'|'Campaign'>('Normal')"
+      const newState = "const[routeFilter,setRouteFilter]=useState<'interhub'|'transit'|'direct'>('interhub');const[categoryFilter,setCategoryFilter]=useState<'Normal'|'Campaign'>('Normal');const[searchQuery,setSearchQuery]=useState('')"
       const stateIndex = out.indexOf(oldState)
       if (stateIndex >= 0) out = out.slice(0, stateIndex) + newState + out.slice(stateIndex + oldState.length)
 
@@ -20,7 +20,7 @@ export default function scheduleUiPatch(): Plugin {
       if (visibleStart >= 0) {
         const visibleEnd = out.indexOf('\n', visibleStart)
         if (visibleEnd >= 0) {
-          const newVisible = "  const visibleSchedules=useMemo(()=>schedules.filter(s=>(s.route??'').toLowerCase()===routeFilter&&(categoryName(s.category)===categoryFilter)),[schedules,routeFilter,categoryFilter])"
+          const newVisible = "  const visibleSchedules=useMemo(()=>{const query=searchQuery.trim().toLowerCase();return schedules.filter(s=>{if((s.route??'').toLowerCase()!==routeFilter||categoryName(s.category)!==categoryFilter)return false;if(!query)return true;const haystack=[s.schedule_id,s.start_point_3lc,s.destination_3lc,s.start_point,s.destination,s.std?.slice(0,5),s.sta?.slice(0,5),s.route,s.category,s.schedule_day_name].filter(Boolean).join(' ').toLowerCase();return query.split(/\\s+/).every(term=>haystack.includes(term))})},[schedules,routeFilter,categoryFilter,searchQuery])"
           out = out.slice(0, visibleStart) + newVisible + out.slice(visibleEnd)
         }
       }
