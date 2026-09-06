@@ -20,7 +20,7 @@ export default function scheduleUiPatch(): Plugin {
       if (visibleStart >= 0) {
         const visibleEnd = out.indexOf('\n', visibleStart)
         if (visibleEnd >= 0) {
-          const newVisible = "  const visibleSchedules=useMemo(()=>{const query=searchQuery.trim().toLowerCase();return schedules.filter(s=>{if((s.route??'').toLowerCase()!==routeFilter||categoryName(s.category)!==categoryFilter)return false;if(!query)return true;const haystack=[s.schedule_id,s.start_point_3lc,s.destination_3lc,s.start_point,s.destination,s.std?.slice(0,5),s.sta?.slice(0,5),s.route,s.category,s.schedule_day_name].filter(Boolean).join(' ').toLowerCase();return query.split(/\\s+/).every(term=>haystack.includes(term))})},[schedules,routeFilter,categoryFilter,searchQuery])"
+          const newVisible = "  const visibleSchedules=useMemo(()=>{const query=searchQuery.trim().toLowerCase();return schedules.filter(s=>{if((s.route??'').toLowerCase()!==routeFilter||categoryName(s.category)!==categoryFilter)return false;if(!query)return true;const haystack=[s.schedule_id,s.start_point_3lc,s.destination_3lc,s.start_point,s.destination,s.std?.slice(0,5),s.sta?.slice(0,5),s.route,s.category,s.schedule_day_name,s.schedule_hub_id,s.hubs?.name,s.hubs?.group_name].filter(Boolean).join(' ').toLowerCase();return query.split(/\\s+/).every(term=>haystack.includes(term))})},[schedules,routeFilter,categoryFilter,searchQuery])"
           out = out.slice(0, visibleStart) + newVisible + out.slice(visibleEnd)
         }
       }
