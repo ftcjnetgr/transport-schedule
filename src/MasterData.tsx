@@ -48,11 +48,11 @@ export default function MasterData({ onBack }: Props) {
       else { const data = await file.arrayBuffer(); const wb=XLSX.read(data,{type:'array'}); const ws=wb.Sheets[wb.SheetNames[0]]; parsed=normalizeRows(XLSX.utils.sheet_to_json<Row>(ws,{defval:''})) }
       const normalized=normalizeRows(parsed)
       const missing=headers.filter(h=>!(h in (normalized[0]??{})))
-      if(missing.length){setErrors([`Header tidak lengkap: ${missing.join(', ')}`]);setRows([]);return}
+      if(missing.length){setErrors([`Header belum lengkap: ${missing.join(', ')}`]);setRows([]);return}
       const nextErrors:string[]=[]
-      normalized.forEach((r,i)=>{if(kind==='schedule'){if(!cleanCell(r.schedule_id))nextErrors.push(`Baris ${i+2}: schedule_id wajib diisi`);if(!cleanCell(r.schedule_hub_id))nextErrors.push(`Baris ${i+2}: schedule_hub_id wajib diisi`);if(!cleanCell(r.std)||!cleanCell(r.sta))nextErrors.push(`Baris ${i+2}: STD dan STA wajib diisi`)}else{if(!cleanCell(r.username))nextErrors.push(`Baris ${i+2}: username wajib diisi`);if(!cleanCell(r.hub_name))nextErrors.push(`Baris ${i+2}: hub_name wajib diisi`);if(!['User','Controller','Super User'].includes(cleanCell(r.role)))nextErrors.push(`Baris ${i+2}: role harus User/Controller/Super User`)}})
+      normalized.forEach((r,i)=>{if(kind==='schedule'){if(!cleanCell(r.schedule_id))nextErrors.push(`Baris ${i+2}: schedule_id wajib diisi`);if(!cleanCell(r.schedule_hub_id))nextErrors.push(`Baris ${i+2}: schedule_hub_id wajib diisi`);if(!cleanCell(r.std)||!cleanCell(r.sta))nextErrors.push(`Baris ${i+2}: STD dan STA wajib diisi`)}else{if(!cleanCell(r.username))nextErrors.push(`Baris ${i+2}: username wajib diisi`);if(!cleanCell(r.hub_name))nextErrors.push(`Baris ${i+2}: hub_name wajib diisi`);if(!['User','Controller','Super User'].includes(cleanCell(r.role)))nextErrors.push(`Baris ${i+2}: role harus User, Controller, atau Super User`)}})
       setRows(normalized);setErrors(nextErrors)
-    } catch(e){setRows([]);setErrors([e instanceof Error?e.message:'File tidak bisa dibaca'])}
+    } catch(e){setRows([]);setErrors([e instanceof Error?e.message:'File belum bisa dibaca. Coba pilih file lain ya.'])}
   }
 
   async function applySchedule() {
@@ -60,7 +60,7 @@ export default function MasterData({ onBack }: Props) {
     setBusy(true);setMessage('');setResultDetails([])
     const payload=rows.map(r=>Object.fromEntries(scheduleHeaders.map(h=>[h,cleanCell(r[h])])))
     const {data,error}=await supabase.rpc('bulk_upsert_schedules',{p_rows:payload})
-    if(error)setErrors([error.message]);else{setMessage(`${data} schedule berhasil di-apply.`);resetFile()}
+    if(error)setErrors([error.message]);else{setMessage(`${data} schedule berhasil disimpan.`);resetFile()}
     setBusy(false)
   }
 
@@ -89,7 +89,7 @@ export default function MasterData({ onBack }: Props) {
       setResultDetails(failed.map((x: {username?:string,error?:string})=>`${x.username}: ${x.error||'gagal diproses'}`))
       if(!failed.length) resetFile()
     } catch(e) {
-      setErrors([e instanceof Error ? e.message : 'Provisioning user gagal'])
+      setErrors([e instanceof Error ? e.message : 'Pembuatan user gagal. Coba lagi ya.'])
     }
     setBusy(false)
   }
@@ -99,15 +99,15 @@ export default function MasterData({ onBack }: Props) {
     else await applyUsers()
   }
 
-  return <main className="app-shell"><header className="topbar"><button className="back-button" onClick={onBack}><ArrowLeft size={18}/> Kembali</button><div><span className="eyebrow">MASTER DATA</span><div className="top-title">Kelola data operasional</div></div></header>
-    <section className="panel master-panel"><div className="section-title"><div><span className="eyebrow">SUPER USER</span><h1>Bulk update</h1><p className="muted">Upload template → preview → validasi → apply. Data yang tidak ada di file tidak akan dihapus.</p></div></div>
-      <div className="tabs"><button className={kind==='schedule'?'active':''} onClick={()=>{setKind('schedule');resetFile();setMessage('')}}>Schedule</button><button className={kind==='user'?'active':''} onClick={()=>{setKind('user');resetFile();setMessage('')}}>User</button></div>
-      <div className="upload-box"><FileSpreadsheet size={24}/><div><strong>{fileName||'Pilih file Excel atau CSV'}</strong><span>Sheet pertama dibaca untuk preview. Format mengikuti template bulk update.</span></div><label className="secondary small upload-button"><Upload size={16}/> Pilih file<input type="file" accept=".xlsx,.xls,.csv" onChange={e=>void onFile(e.target.files?.[0])}/></label></div>
+  return <main className="app-shell"><header className="topbar"><button className="back-button" onClick={onBack}><ArrowLeft size={18}/> Kembali</button><div><span className="eyebrow">DATA UTAMA</span><div className="top-title">Kelola data operasional</div></div></header>
+    <section className="panel master-panel"><div className="section-title"><div><span className="eyebrow">SUPER USER</span><h1>Perbarui data sekaligus</h1><p className="muted">Upload template → cek data → periksa → simpan. Data yang tidak ada di file tetap aman.</p></div></div>
+      <div className="tabs"><button className={kind==='schedule'?'active':''} onClick={()=>{setKind('schedule');resetFile();setMessage('')}}>Jadwal</button><button className={kind==='user'?'active':''} onClick={()=>{setKind('user');resetFile();setMessage('')}}>Pengguna</button></div>
+      <div className="upload-box"><FileSpreadsheet size={24}/><div><strong>{fileName||'Pilih file Excel atau CSV'}</strong><span>Sheet pertama akan dibaca untuk melihat isi file. Format mengikuti template bulk update.</span></div><label className="secondary small upload-button"><Upload size={16}/> Pilih file<input type="file" accept=".xlsx,.xls,.csv" onChange={e=>void onFile(e.target.files?.[0])}/></label></div>
       {message&&<div className="success"><CheckCircle2 size={17}/>{message}</div>}
-      {errors.length>0&&<div className="error wide"><strong>Validasi belum lolos</strong>{errors.slice(0,12).map((e,i)=><div key={i}>{e}</div>)}{errors.length>12&&<div>+ {errors.length-12} error lainnya</div>}</div>}
-      {resultDetails.length>0&&<div className="error wide"><strong>Detail user yang gagal</strong>{resultDetails.map((e,i)=><div key={i}>{e}</div>)}</div>}
-      {kind==='user'&&<div className="hint"><strong>User bulk upload:</strong> Apply akan memetakan hub_name ke hub_id lalu memproses provisioning Auth secara server-side. User baru mendapat password awal <strong>1234</strong> dan wajib menggantinya saat login pertama.</div>}
-      {rows.length>0&&<div className="preview-wrap"><div className="preview-head"><div><span className="eyebrow">PREVIEW</span><h2>{rows.length} baris siap diperiksa</h2></div><button className="icon-button" onClick={resetFile}><X size={17}/></button></div><div className="table-scroll"><table><thead><tr>{headers.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{preview.map((r,i)=><tr key={i}>{headers.map(h=><td key={h}>{cleanCell(r[h])||'-'}</td>)}</tr>)}</tbody></table></div>{rows.length>8&&<div className="muted">Menampilkan 8 baris pertama dari {rows.length}.</div>}</div>}
-      <div className="master-actions"><button className="secondary" onClick={onBack}>Batal</button><button className="primary" disabled={busy||!rows.length||errors.length>0} onClick={()=>void apply()}>{busy?(kind==='user'?'Memproses user…':'Meng-apply…'):(kind==='user'?'Provision & Apply':'Validate & Apply')}</button></div>
+      {errors.length>0&&<div className="error wide"><strong>Data belum lolos pemeriksaan</strong>{errors.slice(0,12).map((e,i)=><div key={i}>{e}</div>)}{errors.length>12&&<div>+ {errors.length-12} masalah lainnya</div>}</div>}
+      {resultDetails.length>0&&<div className="error wide"><strong>Pengguna yang belum berhasil diproses</strong>{resultDetails.map((e,i)=><div key={i}>{e}</div>)}</div>}
+      {kind==='user'&&<div className="hint"><strong>Upload pengguna:</strong> Sistem akan mencocokkan hub_name ke hub_id lalu memproses akun secara aman di server. Pengguna baru mendapat password awal <strong>1234</strong> dan wajib menggantinya saat pertama masuk.</div>}
+      {rows.length>0&&<div className="preview-wrap"><div className="preview-head"><div><span className="eyebrow">LIHAT DULU</span><h2>{rows.length} baris siap diperiksa</h2></div><button className="icon-button" onClick={resetFile}><X size={17}/></button></div><div className="table-scroll"><table><thead><tr>{headers.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>{preview.map((r,i)=><tr key={i}>{headers.map(h=><td key={h}>{cleanCell(r[h])||'-'}</td>)}</tr>)}</tbody></table></div>{rows.length>8&&<div className="muted">Menampilkan 8 baris pertama dari {rows.length}.</div>}</div>}
+      <div className="master-actions"><button className="secondary" onClick={onBack}>Batal</button><button className="primary" disabled={busy||!rows.length||errors.length>0} onClick={()=>void apply()}>{busy?(kind==='user'?'Lagi memproses pengguna…':'Lagi menyimpan…'):(kind==='user'?'Simpan pengguna':'Simpan jadwal')}</button></div>
     </section></main>
 }
