@@ -11,7 +11,7 @@ export default function scheduleUiPatch(): Plugin {
 
       let out = code
       out = out.replace(
-        /const\[dateFilter,setDateFilter\]=useState<DateFilter>\('today'\);const\[categoryFilter,setCategoryFilter\]=useState<'all'\|'Normal'|'Campaign'>\('all'\)/,
+        /const\[dateFilter,setDateFilter\]=useState<DateFilter>\('today'\);const\[categoryFilter,setCategoryFilter\]=useState<'all'|'Normal'|'Campaign'>\('all'\)/,
         `const[routeFilter,setRouteFilter]=useState<'interhub'|'transit'|'direct'>('interhub');const[categoryFilter,setCategoryFilter]=useState<'Normal'|'Campaign'>('Normal')`,
       )
       out = out.replace(
@@ -19,7 +19,9 @@ export default function scheduleUiPatch(): Plugin {
         `const visibleSchedules=useMemo(()=>schedules.filter(s=>(s.route??'').toLowerCase()===routeFilter&&(categoryName(s.category)===categoryFilter)),[schedules,routeFilter,categoryFilter])\n  const groupedSchedules=useMemo(()=>{const groups=new Map<string,Schedule[]>();visibleSchedules.forEach(s=>{const name=s.hubs?.group_name||'Lainnya';if(!groups.has(name))groups.set(name,[]);groups.get(name)!.push(s)});return Array.from(groups.entries()).sort((a,b)=>a[0].localeCompare(b[0]))},[visibleSchedules])`,
       )
       out = out.replace(/<section className="schedule-filters">.*?<\/section>/s, filterMarkup)
-
+      out = out.replace('Mau berangkat kapan?', 'Cari jadwal yang pas')
+      out = out.replace('Pilih hari dan tipe schedule yang mau kamu lihat.', 'Pilih tipe perjalanan dan rute yang kamu butuhkan.')
+      out = out.replace('Pilih hari dan tipe schedule yang mau kamu lihat.', 'Pilih tipe perjalanan dan rute yang kamu butuhkan.')
       if (out === code) return null
       return { code: out, map: null }
     },
