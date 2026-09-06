@@ -12,8 +12,7 @@ export default function scheduleUiPatch(): Plugin {
 
       const oldState = "const[dateFilter,setDateFilter]=useState<DateFilter>('today');const[routeFilter,setRouteFilter]=useState<'interhub'|'transit'|'direct'>('interhub');const[categoryFilter,setCategoryFilter]=useState<'Normal'|'Campaign'>('Normal');const[searchQuery,setSearchQuery]=useState('')"
       const sourceState = "const[dateFilter,setDateFilter]=useState<DateFilter>('today');const[categoryFilter,setCategoryFilter]=useState<'all'|'Normal'|'Campaign'>('all')"
-      const stateIndex = out.indexOf(oldState)
-      if (stateIndex < 0) {
+      if (out.indexOf(oldState) < 0) {
         if (out.indexOf(sourceState) < 0) return null
         out = out.replace(sourceState, oldState)
       }
@@ -36,6 +35,7 @@ export default function scheduleUiPatch(): Plugin {
       out = out.replaceAll('Mau berangkat kapan?', 'Cari jadwal yang pas')
       out = out.replaceAll('Pilih hari dan tipe schedule yang mau kamu lihat.', 'Pilih tipe perjalanan, rute, dan hari yang kamu butuhkan.')
       if (out === code) return null
+      out = "import './dashboard-overrides.css'\n" + out
       return { code: out, map: null }
     },
   }
