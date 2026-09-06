@@ -1,0 +1,50 @@
+name: Apply final app fix
+on:
+  push:
+    branches: [main]
+jobs:
+  fix:
+    if: github.event.head_commit.message != 'fix: apply final app patch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch password flow and font
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/main.tsx')
+          s=p.read_text()
+          old="const {error:e2}=await supabase.auth.updateUser({password});if(e2){setError('Password baru belum bisa disimpan. Coba lagi ya.');setBusy(false);return}const {error:e3}=await supabase.rpc('mark_password_changed');if(e3){setError('Password berhasil diperbarui, tapi status akun belum tersimpan. Coba lagi ya.');setBusy(false);return}onChanged()"
+          new="const {data:result,error:e2}=await supabase.functions.invoke('change-password',{body:{password}});if(e2){let msg='Password baru belum bisa disimpan. Coba lagi ya.';try{const body=await (e2 as any).context?.json();if(body?.error)msg=body.error}catch{}setError(msg);setBusy(false);return}if(!result?.ok){setError(result?.error||'Password baru belum bisa disimpan. Coba lagi ya.');setBusy(false);return}onChanged()"
+          if old not in s:
+              raise SystemExit('password patch target not found')
+          p.write_text(s.replace(old,new))
+          p=Path('src/styles.css')
+          s=p.read_text()
+          replacements={
+            ":root{font-family:'Gilroy-Regular',sans-serif;":":root{font-family:'Gilroy-Medium','Gilroy-Regular',sans-serif;",
+            "h1{margin:0 0 10px;font-size:clamp(32px,6vw,46px);line-height:1.05;letter-spacing:-.04em}":"h1{margin:0 0 10px;font-size:clamp(32px,6vw,46px);line-height:1.05;letter-spacing:-.04em;font-family:'Gilroy-Medium','Gilroy-Regular',sans-serif;font-weight:400}",
+            ".eyebrow{display:inline-block;font-size:11px;font-weight:800;":".eyebrow{display:inline-block;font-size:11px;font-weight:400;",
+            "label{display:grid;gap:8px;color:#334155;font-size:13px;font-weight:700}":"label{display:grid;gap:8px;color:#334155;font-size:13px;font-weight:400}",
+            ".primary,.secondary,.back-button{border:0;border-radius:13px;padding:13px 18px;font-weight:700;":".primary,.secondary,.back-button{border:0;border-radius:13px;padding:13px 18px;font-weight:400;",
+            ".top-title{font-size:18px;font-weight:800}":".top-title{font-size:18px;font-weight:400}",
+            ".route-code{margin-top:6px;font-size:21px;font-weight:800;":".route-code{margin-top:6px;font-size:21px;font-weight:400;",
+            ".time-row b{font-size:20px}":".time-row b{font-size:20px;font-weight:400}",
+            ".tabs button{flex:1;border:0;background:transparent;border-radius:10px;padding:10px;color:#64748b;font-weight:700;":".tabs button{flex:1;border:0;background:transparent;border-radius:10px;padding:10px;color:#64748b;font-weight:400;",
+            ".status{padding:6px 9px;border-radius:999px;background:#f1f5f9;font-weight:800;":".status{padding:6px 9px;border-radius:999px;background:#f1f5f9;font-weight:400;",
+            ".confirmed{display:inline-flex;align-items:center;gap:5px;color:#047857!important;font-weight:800}":".confirmed{display:inline-flex;align-items:center;gap:5px;color:#047857!important;font-weight:400}"
+          }
+          for a,b in replacements.items(): s=s.replace(a,b)
+          p.write_text(s)
+          PY
+      - name: Remove temporary workflows
+        run: rm -f .github/workflows/apply-final-fix.yml .github/workflows/fix-password-font.yml PASSWORD_FONT_FIX_TRIGGER.txt
+      - name: Commit patch
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add -A
+          git commit -m "fix: apply final app patch"
+          git push
