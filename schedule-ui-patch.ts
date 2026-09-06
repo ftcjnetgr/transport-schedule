@@ -8,16 +8,32 @@ export default function scheduleUiPatch(): Plugin {
     enforce: 'pre',
     transform(code, id) {
       if (!id.endsWith('/src/main.tsx')) return null
+
       let out = code
-      const statePattern = /const\[dateFilter,setDateFilter\]=useState<DateFilter>\('today'\);const\[categoryFilter,setCategoryFilter\]=useState<'all'|'Normal'|'Campaign'>\('all'\)/
-      const visiblePattern = /const visibleSchedules=useMemo\(\(\)=>\{const now=new Date\(\);let targetDays:number\[\];.*?\},\[schedules,dateFilter,categoryFilter,profile\.role\]\)\n  const groupedSchedules=useMemo\(\(\)=>\{.*?\},\[visibleSchedules\]\)/s
-      const markupPattern = /<section className="schedule-filters">.*?<\/section>/s
-      if (!statePattern.test(out) || !visiblePattern.test(out) || !markupPattern.test(out)) return null
-      out = out.replace(statePattern, `const[routeFilter,setRouteFilter]=useState<'interhub'|'transit'|'direct'>('interhub');const[categoryFilter,setCategoryFilter]=useState<'Normal'|'Campaign'>('Normal')`)
-      out = out.replace(visiblePattern, `const visibleSchedules=useMemo(()=>schedules.filter(s=>(s.route??'').toLowerCase()===routeFilter&&(categoryName(s.category)===categoryFilter)),[schedules,routeFilter,categoryFilter])`)
-      out = out.replace(markupPattern, filterMarkup)
-      out = out.replace('Mau berangkat kapan?', 'Cari jadwal yang pas')
-      out = out.replace('Pilih hari dan tipe schedule yang mau kamu lihat.', 'Pilih tipe perjalanan dan rute yang kamu butuhkan.')
+
+      const oldState = "const[dateFilter,setDateFilter]=useState<DateFilter>('today');const[categoryFilter,setCategoryFilter]=useState<'all'|'Normal'|'Campaign'>('all')"
+      const newState = "const[routeFilter,setRouteFilter]=useState<'interhub'|'transit'|'direct'>('interhub');const[categoryFilter,setCategoryFilter]=useState<'Normal'|'Campaign'>('Normal')"
+      const stateIndex = out.indexOf(oldState)
+      if (stateIndex >= 0) out = out.slice(0, stateIndex) + newState + out.slice(stateIndex + oldState.length)
+
+      const visibleStart = out.indexOf('  const visibleSchedules=useMemo')
+      if (visibleStart >= 0) {
+        const visibleEnd = out.indexOf('\n', visibleStart)
+        if (visibleEnd >= 0) {
+          const newVisible = "  const visibleSchedules=useMemo(()=>schedules.filter(s=>(s.route??'').toLowerCase()===routeFilter&&(categoryName(s.category)===categoryFilter)),[schedules,routeFilter,categoryFilter])"
+          out = out.slice(0, visibleStart) + newVisible + out.slice(visibleEnd)
+        }
+      }
+
+      const markupStart = out.indexOf('<section className="schedule-filters">')
+      if (markupStart >= 0) {
+        const markupEnd = out.indexOf('</section>', markupStart)
+        if (markupEnd >= 0) out = out.slice(0, markupStart) + filterMarkup + out.slice(markupEnd + '</section>'.length)
+      }
+
+      out = out.replaceAll('Mau berangkat kapan?', 'Cari jadwal yang pas')
+      out = out.replaceAll('Pilih hari dan tipe schedule yang mau kamu lihat.', 'Pilih tipe perjalanan dan rute yang kamu butuhkan.')
+      if (out === code) return null
       return { code: out, map: null }
     },
   }
