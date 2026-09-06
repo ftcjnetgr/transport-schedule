@@ -1,6 +1,6 @@
 import type { Plugin } from 'vite'
 
-const filterMarkup = `<section className="schedule-filters"><div className="category-filter"><span className="filter-label">Category</span><div className="filter-chips">{(['Normal','Campaign'] as const).map(category=><button key={category} className={categoryFilter===category?'active':''} onClick={()=>setCategoryFilter(category)}>{category}</button>)}</div></div><div className="route-filter"><div className="route-tabs">{(['interhub','transit','direct'] as const).map(route=><button key={route} className={routeFilter===route?'active':''} onClick={()=>setRouteFilter(route)}>{route==='interhub'?'Interhub':route==='transit'?'Transit':'Direct'}</button>)}</div></div></section>`
+const filterMarkup = `<section className="schedule-filters"><div className="category-filter"><span className="filter-label">Tipe perjalanan</span><div className="filter-chips">{(['Normal','Campaign'] as const).map(category=><button key={category} className={categoryFilter===category?'active':''} onClick={()=>setCategoryFilter(category)}>{category}</button>)}</div></div><div className="route-filter"><div className="route-tabs">{(['interhub','transit','direct'] as const).map(route=><button key={route} className={routeFilter===route?'active':''} onClick={()=>setRouteFilter(route)}>{route==='interhub'?'Interhub':route==='transit'?'Transit':'Direct'}</button>)}</div></div></section>`
 
 export default function scheduleUiPatch(): Plugin {
   return {
@@ -11,7 +11,7 @@ export default function scheduleUiPatch(): Plugin {
 
       let out = code
       out = out.replace(
-        /const\[dateFilter,setDateFilter\]=useState<DateFilter>\('today'\);const\[categoryFilter,setCategoryFilter\]=useState<'all'\|'Normal'\|'Campaign'>\('all'\)/,
+        /const\[dateFilter,setDateFilter\]=useState<DateFilter>\('today'\);const\[categoryFilter,setCategoryFilter\]=useState<'all'\|'Normal'|'Campaign'>\('all'\)/,
         `const[routeFilter,setRouteFilter]=useState<'interhub'|'transit'|'direct'>('interhub');const[categoryFilter,setCategoryFilter]=useState<'Normal'|'Campaign'>('Normal')`,
       )
       out = out.replace(
